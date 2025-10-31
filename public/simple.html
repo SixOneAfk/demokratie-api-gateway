@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Video Platform</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); padding: 30px; }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .section { margin-bottom: 30px; }
+        input[type="file"], input[type="number"] { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 10px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 5px; font-size: 15px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        video { width: 100%; max-width: 540px; margin: 20px auto; display: block; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Video Platform</h1>
+        <div class="section">
+            <h2>Upload Video</h2>
+            <input type="file" id="fileInput" accept="video/*">
+            <button onclick="uploadVideo()">Upload</button>
+            <div id="uploadStatus"></div>
+        </div>
+        <div class="section">
+            <h2>Stream Video</h2>
+            <input type="number" id="videoIdInput" placeholder="Video ID" min="1">
+            <button onclick="streamVideo()">Stream</button>
+            <div id="streamStatus"></div>
+            <video id="videoPlayer" controls style="display:none;">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        function uploadVideo() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadStatus = document.getElementById('uploadStatus');
+            if (!fileInput.files[0]) {
+                showStatus('Please select a video file.', 'error', uploadStatus);
+                return;
+            }
+            showStatus('Uploading...', 'info', uploadStatus);
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const xhr = new XMLHttpRequest();
+            xhr.onload = function() {
+                if (xhr.status === 200 || xhr.status === 201) {
+                    const response = JSON.parse(xhr.responseText);
+                    showStatus('Upload successful! Video ID: ' + response.videoId, 'success', uploadStatus);
+                    document.getElementById('videoIdInput').value = response.videoId;
+                } else {
+                    showStatus('Upload failed: ' + xhr.statusText, 'error', uploadStatus);
+                }
+            };
+            xhr.onerror = function() {
+                showStatus('Upload failed: Network error', 'error', uploadStatus);
+            };
+            xhr.open('POST', `${API_BASE}/video/upload`);
+            xhr.send(formData);
+        }
+        function streamVideo() {
+            const videoId = document.getElementById('videoIdInput').value;
+            const streamStatus = document.getElementById('streamStatus');
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (!videoId || isNaN(videoId) || videoId < 1) {
+                showStatus('Please enter a valid video ID.', 'error', streamStatus);
+                videoPlayer.style.display = 'none';
+                return;
+            }
+            showStatus('Loading video...', 'info', streamStatus);
+            const streamUrl = `${API_BASE}/video/${videoId}`;
+            videoPlayer.src = '';
+            videoPlayer.style.display = 'none';
+            videoPlayer.onloadedmetadata = function() {
+                showStatus('Video loaded successfully!', 'success', streamStatus);
+                videoPlayer.style.display = 'block';
+            };
+            videoPlayer.onerror = function() {
+                showStatus('Failed to load video. Check video ID and try again.', 'error', streamStatus);
+                videoPlayer.style.display = 'none';
+            };
+            videoPlayer.src = streamUrl;
+            videoPlayer.load();
+        }
+        function showStatus(message, type, element) {
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        document.getElementById('videoIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                streamVideo();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -13,6 +13,9 @@ import {
   USER_SERVICE_NAME 
 } from '../protos/generated/demokratie';
 
+//TODO: Add reflected types and remove DTO and any
+//      Create a constants folder
+
 @Injectable()
 export class UsersService implements OnModuleInit {
   private userService: UserServiceClient;
@@ -25,7 +28,7 @@ export class UsersService implements OnModuleInit {
 
   create(createUserDto: CreateUserDto): Observable<any> {
     const request: CreateUserRequest = {
-      name: createUserDto.name || createUserDto['name'] || ''
+      name: createUserDto.name
     };
     return this.userService.createUser(request);
   }
@@ -43,12 +46,12 @@ export class UsersService implements OnModuleInit {
   update(id: number, updateUserDto: UpdateUserDto): Observable<any> {
     const request: UpdateUserRequest = {
       id,
-      name: updateUserDto.name || updateUserDto['name'] || ''
+      name: updateUserDto.name
     };
     return this.userService.updateUser(request);
   }
 
-  remove(id: number): Observable<any> {
+  delete(id: number): Observable<any> {
     const request: DeleteUserRequest = { id };
     return this.userService.deleteUser(request);
   }
