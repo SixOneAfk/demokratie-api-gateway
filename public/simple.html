@@ -9,9 +9,15 @@
         .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); padding: 30px; }
         h1 { text-align: center; color: #333; margin-bottom: 30px; }
         .section { margin-bottom: 30px; }
+        .section p { margin: 0 0 15px; color: #555; }
         input[type="file"], input[type="number"] { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 10px; }
         button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 16px; cursor: pointer; }
         button:hover { background: #0056b3; }
+        button:disabled { background: #a0aec0; cursor: not-allowed; }
+        .button-secondary { background: #4a5568; }
+        .button-secondary:hover { background: #2d3748; }
+        .auth-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        #authVideo { width: 100%; max-width: 480px; margin: 15px auto 0; border-radius: 8px; background: #000; display: none; }
         .status { margin: 10px 0; padding: 10px; border-radius: 5px; font-size: 15px; }
         .success { background: #d4edda; color: #155724; }
         .error { background: #f8d7da; color: #721c24; }
@@ -23,9 +29,19 @@
     <div class="container">
         <h1>Simple Video Platform</h1>
         <div class="section">
+            <h2>Authenticate</h2>
+            <p>Grant camera access so we can verify your identity before uploads.</p>
+            <div class="auth-actions">
+                <button id="authButton" onclick="startAuthentication()">Start authentication</button>
+                <button id="stopAuthButton" class="button-secondary" onclick="stopAuthentication()" style="display:none;">Stop</button>
+            </div>
+            <div id="authStatus"></div>
+            <video id="authVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="section">
             <h2>Upload Video</h2>
-            <input type="file" id="fileInput" accept="video/*">
-            <button onclick="uploadVideo()">Upload</button>
+            <input type="file" id="fileInput" accept="video/*" disabled>
+            <button id="uploadButton" onclick="uploadVideo()" disabled>Upload</button>
             <div id="uploadStatus"></div>
         </div>
         <div class="section">
@@ -40,9 +56,163 @@
     </div>
     <script>
         const API_BASE = 'http://localhost:3000';
+        const FACE_ENDPOINT = 'http://localhost:5001/detect';
+        const AUTH_INTERVAL_MS = 750;
+
+        let isAuthenticated = false;
+        let authStream = null;
+        let authInterval = null;
+        let isSendingFrame = false;
+
+        const uploadButton = document.getElementById('uploadButton');
+        const fileInput = document.getElementById('fileInput');
+        const authStatus = document.getElementById('authStatus');
+        const authVideo = document.getElementById('authVideo');
+        const authButton = document.getElementById('authButton');
+        const stopAuthButton = document.getElementById('stopAuthButton');
+
+        const captureCanvas = document.createElement('canvas');
+        const captureCtx = captureCanvas.getContext('2d');
+
+        setUploadEnabled(false);
+
+        async function startAuthentication(triggeredByUpload = false) {
+            if (isAuthenticated) {
+                showStatus('Already authenticated. You can upload videos.', 'success', authStatus);
+                return true;
+            }
+
+            if (authInterval || isSendingFrame) {
+                showStatus('Authentication already in progress...', 'info', authStatus);
+                return false;
+            }
+
+            try {
+                showStatus('Requesting camera access...', 'info', authStatus);
+                authButton.disabled = true;
+
+                authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+
+                authVideo.style.display = 'block';
+                authVideo.srcObject = authStream;
+                await authVideo.play();
+
+                stopAuthButton.style.display = 'inline-block';
+                stopAuthButton.disabled = false;
+
+                showStatus('Look at the camera. Verifying...', 'info', authStatus);
+                authInterval = setInterval(captureAndSendFrame, AUTH_INTERVAL_MS);
+
+                return true;
+            } catch (error) {
+                console.error('Camera access failed:', error);
+                showStatus('Unable to access the camera. Please allow camera permissions and try again.', 'error', authStatus);
+                authButton.disabled = false;
+                stopAuthentication();
+                return false;
+            }
+        }
+
+        function stopAuthentication(clearStatus = false) {
+            if (authInterval) {
+                clearInterval(authInterval);
+                authInterval = null;
+            }
+
+            if (authStream) {
+                authStream.getTracks().forEach(track => track.stop());
+                authStream = null;
+            }
+
+            authVideo.pause();
+            authVideo.srcObject = null;
+            authVideo.style.display = 'none';
+
+            authButton.disabled = false;
+            stopAuthButton.style.display = 'none';
+            stopAuthButton.disabled = false;
+            isSendingFrame = false;
+
+            if (clearStatus) {
+                authStatus.innerHTML = '';
+            }
+        }
+
+        async function captureAndSendFrame() {
+            if (isAuthenticated || !authStream || isSendingFrame || authVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+                return;
+            }
+
+            isSendingFrame = true;
+
+            try {
+                const width = authVideo.videoWidth || 640;
+                const height = authVideo.videoHeight || 480;
+                captureCanvas.width = width;
+                captureCanvas.height = height;
+                captureCtx.drawImage(authVideo, 0, 0, width, height);
+
+                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/jpeg', 0.85));
+                if (!blob) {
+                    throw new Error('Failed to capture frame');
+                }
+
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
+
+                const response = await fetch(FACE_ENDPOINT, { method: 'POST', body: formData });
+
+                if (!response.ok) {
+                    throw new Error(`Detection service returned ${response.status}`);
+                }
+
+                const data = await response.json();
+                const authenticated = Boolean(
+                    data?.authenticated === true ||
+                    (Array.isArray(data?.matches) && data.matches.some(match => match?.authenticated))
+                );
+
+                if (authenticated) {
+                    completeAuthentication(true);
+                }
+            } catch (error) {
+                console.error('Authentication frame failed:', error);
+                showStatus('Authentication failed. Retrying...', 'error', authStatus);
+            } finally {
+                isSendingFrame = false;
+            }
+        }
+
+        function completeAuthentication(success) {
+            stopAuthentication(!success);
+
+            if (success) {
+                isAuthenticated = true;
+                setUploadEnabled(true);
+                showStatus('Authentication successful. You can upload videos now.', 'success', authStatus);
+            } else {
+                isAuthenticated = false;
+                setUploadEnabled(false);
+                showStatus('Authentication failed.', 'error', authStatus);
+            }
+        }
+
+        function setUploadEnabled(enabled) {
+            uploadButton.disabled = !enabled;
+            fileInput.disabled = !enabled;
+            if (!enabled) {
+                fileInput.value = '';
+            }
+        }
+
         function uploadVideo() {
-            const fileInput = document.getElementById('fileInput');
             const uploadStatus = document.getElementById('uploadStatus');
+            if (!isAuthenticated) {
+                showStatus('Authentication required. Starting camera...', 'info', authStatus);
+                startAuthentication(true);
+                showStatus('Authenticate first to enable uploads.', 'error', uploadStatus);
+                return;
+            }
             if (!fileInput.files[0]) {
                 showStatus('Please select a video file.', 'error', uploadStatus);
                 return;
@@ -66,8 +236,10 @@
             xhr.open('POST', `${API_BASE}/video/upload`);
             xhr.send(formData);
         }
+
         function streamVideo() {
-            const videoId = document.getElementById('videoIdInput').value;
+            const videoIdInput = document.getElementById('videoIdInput');
+            const videoId = videoIdInput.value;
             const streamStatus = document.getElementById('streamStatus');
             const videoPlayer = document.getElementById('videoPlayer');
             if (!videoId || isNaN(videoId) || videoId < 1) {
@@ -90,14 +262,18 @@
             videoPlayer.src = streamUrl;
             videoPlayer.load();
         }
+
         function showStatus(message, type, element) {
             element.innerHTML = `<div class="status ${type}">${message}</div>`;
         }
+
         document.getElementById('videoIdInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 streamVideo();
             }
         });
+
+        window.addEventListener('beforeunload', () => stopAuthentication(true));
     </script>
 </body>
 </html>

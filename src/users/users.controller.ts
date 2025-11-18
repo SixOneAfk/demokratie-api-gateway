@@ -1,7 +1,14 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import type { 
+  CreateUserRequest, 
+  UpdateUserRequest,
+  CreateUserResponse,
+  GetUserResponse,
+  UpdateUserResponse,
+  DeleteUserResponse,
+  ListUsersResponse
+} from '../protos/generated/demokratie';
 
 
 //TODO: Add reflected types
@@ -12,8 +19,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(@Body() createUserRequest: CreateUserRequest) {
+    return this.usersService.create(createUserRequest);
   }
   
   @Get()
@@ -27,8 +34,8 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  update(@Param('id') id: number, @Body() updateUserRequest: Partial<UpdateUserRequest>) {
+    return this.usersService.update(id, updateUserRequest);
   }
 
   @Delete(':id')

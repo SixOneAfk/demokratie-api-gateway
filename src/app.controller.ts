@@ -8,4 +8,9 @@ export class AppController {
   serveSimpleFrontend(@Res() res: Response) {
     res.sendFile(join(__dirname, '..', 'public', 'simple.html'));
   }
+
+  @Get('room.html')
+  serveRoomFrontend(@Res() res: Response) {
+    res.sendFile(join(__dirname, '..', 'public', 'room.html'));
+  }
 }

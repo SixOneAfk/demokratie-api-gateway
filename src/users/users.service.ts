@@ -1,8 +1,6 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable } from 'rxjs';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { 
   UserServiceClient, 
   CreateUserRequest, 
@@ -10,6 +8,11 @@ import {
   UpdateUserRequest, 
   DeleteUserRequest, 
   ListUsersRequest,
+  CreateUserResponse,
+  GetUserResponse,
+  UpdateUserResponse,
+  DeleteUserResponse,
+  ListUsersResponse,
   USER_SERVICE_NAME 
 } from '../protos/generated/demokratie';
 
@@ -26,32 +29,30 @@ export class UsersService implements OnModuleInit {
     this.userService = this.client.getService<UserServiceClient>(USER_SERVICE_NAME);
   }
 
-  create(createUserDto: CreateUserDto): Observable<any> {
-    const request: CreateUserRequest = {
-      name: createUserDto.name
-    };
-    return this.userService.createUser(request);
+  create(createUserRequest: CreateUserRequest): Observable<CreateUserResponse> {
+    return this.userService.createUser(createUserRequest);
   }
 
-  findAll(): Observable<any> {
+  findAll(): Observable<ListUsersResponse> {
     const request: ListUsersRequest = {};
     return this.userService.listUsers(request);
   }
 
-  findOne(id: number): Observable<any> {
+  findOne(id: number): Observable<GetUserResponse> {
     const request: GetUserRequest = { id };
     return this.userService.getUser(request);
   }
 
-  update(id: number, updateUserDto: UpdateUserDto): Observable<any> {
+  update(id: number, updateUserRequest: Partial<UpdateUserRequest>): Observable<UpdateUserResponse> {
     const request: UpdateUserRequest = {
       id,
-      name: updateUserDto.name
+      name: updateUserRequest.name || '',
+      email: updateUserRequest.email || ''
     };
     return this.userService.updateUser(request);
   }
 
-  delete(id: number): Observable<any> {
+  delete(id: number): Observable<DeleteUserResponse> {
     const request: DeleteUserRequest = { id };
     return this.userService.deleteUser(request);
   }

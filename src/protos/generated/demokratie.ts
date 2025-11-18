@@ -13,11 +13,30 @@ export const protobufPackage = "demokratie";
 /** User message definition */
 export interface User {
   id: number;
+  email: string;
   name: string;
+  createdAt: string;
+  updatedAt: string;
+  videos: Video[];
+}
+
+/** Video message definition */
+export interface Video {
+  id: number;
+  title: string;
+  filename: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  duration: number;
+  uploadedBy: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Request messages */
 export interface CreateUserRequest {
+  email: string;
   name: string;
 }
 
@@ -27,6 +46,7 @@ export interface GetUserRequest {
 
 export interface UpdateUserRequest {
   id: number;
+  email: string;
   name: string;
 }
 

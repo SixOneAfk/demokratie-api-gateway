@@ -1,10 +1,9 @@
-import { Controller, Post, Get, Query, Res, Req, UploadedFile, UseInterceptors, StreamableFile } from '@nestjs/common';
+import { Controller, Post, Get, Res, Req, UploadedFile, UseInterceptors, StreamableFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response, Request } from 'express';
 import { VideoService } from './video.service';
 import { Observable, from } from 'rxjs';
 import { Chunk, StreamVideoRequest } from '../protos/generated/demokratie';
-import { PassThrough } from 'stream';
 
 @Controller('video')
 export class VideoController {
