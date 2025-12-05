@@ -28,7 +28,7 @@
 <body>
     <div class="container">
         <h1>Simple Video Platform</h1>
-        <div class="section">
+        <div class="section" id="authSection">
             <h2>Authenticate</h2>
             <p>Grant camera access so we can verify your identity before uploads.</p>
             <div class="auth-actions">
@@ -55,11 +55,12 @@
         </div>
     </div>
     <script>
+        const FACE_ENABLED = true; // Set to true to enable face authentication
         const API_BASE = 'http://localhost:3000';
-        const FACE_ENDPOINT = 'http://localhost:5001/detect';
+        const FACE_ENDPOINT = FACE_ENABLED ? 'http://localhost:5001/detect' : null;
         const AUTH_INTERVAL_MS = 750;
 
-        let isAuthenticated = false;
+        let isAuthenticated = !FACE_ENABLED;
         let authStream = null;
         let authInterval = null;
         let isSendingFrame = false;
@@ -71,12 +72,23 @@
         const authButton = document.getElementById('authButton');
         const stopAuthButton = document.getElementById('stopAuthButton');
 
-        const captureCanvas = document.createElement('canvas');
-        const captureCtx = captureCanvas.getContext('2d');
+        const captureCanvas = FACE_ENABLED ? document.createElement('canvas') : null;
+        const captureCtx = captureCanvas ? captureCanvas.getContext('2d') : null;
 
-        setUploadEnabled(false);
+        if (FACE_ENABLED) {
+            setUploadEnabled(false);
+        } else {
+            setUploadEnabled(true);
+            const authSection = document.getElementById('authSection');
+            if (authSection) {
+                authSection.style.display = 'none';
+            }
+        }
 
         async function startAuthentication(triggeredByUpload = false) {
+            if (!FACE_ENABLED) {
+                return true;
+            }
             if (isAuthenticated) {
                 showStatus('Already authenticated. You can upload videos.', 'success', authStatus);
                 return true;
@@ -114,6 +126,9 @@
         }
 
         function stopAuthentication(clearStatus = false) {
+            if (!FACE_ENABLED) {
+                return;
+            }
             if (authInterval) {
                 clearInterval(authInterval);
                 authInterval = null;
@@ -139,7 +154,7 @@
         }
 
         async function captureAndSendFrame() {
-            if (isAuthenticated || !authStream || isSendingFrame || authVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+            if (!FACE_ENABLED || isAuthenticated || !authStream || isSendingFrame || authVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
                 return;
             }
 
@@ -207,7 +222,7 @@
 
         function uploadVideo() {
             const uploadStatus = document.getElementById('uploadStatus');
-            if (!isAuthenticated) {
+            if (FACE_ENABLED && !isAuthenticated) {
                 showStatus('Authentication required. Starting camera...', 'info', authStatus);
                 startAuthentication(true);
                 showStatus('Authenticate first to enable uploads.', 'error', uploadStatus);
@@ -273,7 +288,9 @@
             }
         });
 
-        window.addEventListener('beforeunload', () => stopAuthentication(true));
+        if (FACE_ENABLED) {
+            window.addEventListener('beforeunload', () => stopAuthentication(true));
+        }
     </script>
 </body>
 </html>

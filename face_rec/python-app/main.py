@@ -73,7 +73,7 @@ app.add_middleware(
 REFERENCE_FACE: Optional[np.ndarray] = None
 REFERENCE_PATH: Optional[Path] = None
 FACE_CASCADE: Optional[cv2.CascadeClassifier] = None
-MATCH_THRESHOLD = 50.0
+MATCH_THRESHOLD = 35.0
 
 
 @app.on_event("startup")
