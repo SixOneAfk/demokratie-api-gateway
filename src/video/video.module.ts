@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { demokratieProtoPath } from '../common/grpc.constants';
 import { VideoService } from './video.service';
 import { VideoController } from './video.controller';
 
@@ -11,7 +12,7 @@ import { VideoController } from './video.controller';
         transport: Transport.GRPC,
         options: {
           package: 'demokratie',
-          protoPath: '/home/nik/Desktop/demokratie/grpc-server/src/protos/demokratie.proto',
+          protoPath: process.env.GRPC_VIDEO_PROTO_PATH ?? demokratieProtoPath,
           url: 'localhost:50000',
         },
       },
